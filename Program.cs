@@ -1,11 +1,14 @@
-using Azure.Core.Serialization;
-using Azure.Data.Tables;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 using Microsoft.Azure.Functions.Worker.Extensions.OpenApi.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System;
-using System.Text.Json;
+
+using Azure.Data.Tables;
+
 using TodoApi.Services.Repositories;
+using System;
 
 namespace TodoApi
 {
@@ -17,53 +20,42 @@ namespace TodoApi
                 .ConfigureFunctionsWorkerDefaults(worker => worker.UseNewtonsoftJson())
                 .ConfigureOpenApi()
                 .ConfigureServices(
-                    s =>
+                    injector =>
                     {
-                        s.AddSingleton<ITodoRepository, InMemoryTodoRepository>();
-                        // s.AddSingleton<TableServiceClient>(
-                        //     new TableServiceClient(
-                        //         connectionString: Environment.GetEnvironmentVariable(
-                        //             "AzureWebJobsStorage"
-                        //         )
-                        //     )
-                        // );
-                        // s.AddSingleton<ITodoRepository, TableStorageTodoRepository>(
-                        //     factory =>
-                        //     {
-                        //         var tableName = "TodosTable";
-                        //         var tableServiceClient =
-                        //             factory.GetRequiredService<TableServiceClient>();
-                        //         tableServiceClient.CreateTableIfNotExists(tableName);
-                        //         return new TableStorageTodoRepository(
-                        //             tableServiceClient: tableServiceClient,
-                        //             tableClient: new TableClient(
-                        //                 connectionString: Environment.GetEnvironmentVariable(
-                        //                     "AzureWebJobsStorage"
-                        //                 ),
-                        //                 tableName: tableName
-                        //             )
-                        //         );
-                        //     }
-                        // );
-                        s.AddSingleton<ObjectSerializer>(
-                            new JsonObjectSerializer(
-                                new JsonSerializerOptions
-                                {
-                                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                    WriteIndented = true,
-                                    DefaultIgnoreCondition = System
-                                        .Text
-                                        .Json
-                                        .Serialization
-                                        .JsonIgnoreCondition
-                                        .WhenWritingNull
-                                }
+                        injector.Configure<JsonSerializerOptions>(
+                            options =>
+                            {
+                                options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                                options.Converters.Add(new JsonStringEnumConverter());
+                                options.DefaultIgnoreCondition =
+                                    JsonIgnoreCondition.WhenWritingNull;
+                            }
+                        );
+
+                        // injector.AddSingleton<ITodoRepository, InMemoryTodoRepository>();
+                        injector.AddSingleton(
+                            new TableServiceClient(
+                                connectionString: Environment.GetEnvironmentVariable(
+                                    "AzureWebJobsStorage"
+                                )
                             )
+                        );
+                        injector.AddSingleton<ITodoRepository, TableStorageTodoRepository>(
+                            factory =>
+                            {
+                                var tableName = "Todos";
+                                var tableServiceClient =
+                                    factory.GetRequiredService<TableServiceClient>();
+                                tableServiceClient.CreateTableIfNotExists(tableName);
+
+                                return new TableStorageTodoRepository(
+                                    tableServiceClient: tableServiceClient
+                                );
+                            }
                         );
                     }
                 )
                 .Build();
-
             host.Run();
         }
     }

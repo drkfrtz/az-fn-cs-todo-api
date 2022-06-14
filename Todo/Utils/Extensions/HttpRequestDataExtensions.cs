@@ -1,4 +1,3 @@
-using Azure.Core.Serialization;
 using Microsoft.Azure.Functions.Worker.Http;
 using System;
 using System.Net;
@@ -17,28 +16,24 @@ namespace TodoApi.Extensions
         }
 
         public static async Task<HttpResponseData> CreateResourceNotFoundResponse(
-            this HttpRequestData req,
-            ObjectSerializer serializer
+            this HttpRequestData req
         )
         {
             HttpResponseData res = req.CreateResponse();
             await res.WriteAsJsonAsync(
                 new ApiError(resourceNotFoundMessage),
-                serializer,
                 HttpStatusCode.NotFound
             );
             return res;
         }
 
         public static async Task<HttpResponseData> CreateMalformedBodyResponse(
-            this HttpRequestData req,
-            ObjectSerializer serializer
+            this HttpRequestData req
         )
         {
             var errorResponse = req.CreateResponse();
             await errorResponse.WriteAsJsonAsync(
                 new ApiError("Malformed request body."),
-                serializer,
                 HttpStatusCode.UnprocessableEntity
             );
             return errorResponse;
@@ -46,12 +41,11 @@ namespace TodoApi.Extensions
 
         public static async Task<HttpResponseData> CreateOkResponse<T>(
             this HttpRequestData req,
-            T body,
-            ObjectSerializer serializer
+            T body
         )
         {
             var response = req.CreateResponse(HttpStatusCode.OK);
-            await response.WriteAsJsonAsync(body, serializer);
+            await response.WriteAsJsonAsync(body);
             return response;
         }
     }

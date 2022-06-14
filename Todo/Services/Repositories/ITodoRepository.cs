@@ -1,18 +1,20 @@
+using System;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 using TodoApi.Models.Dtos;
+using TodoApi.Models.Entities;
 
 namespace TodoApi.Services.Repositories
 {
     public interface ITodoRepository
     {
         // Commands
-        public string CreateTodo(CreateTodoRequest createTodoReq);
-        public void DeleteTodo(string id);
-        public void UpdateTodo(string id, string description);
-        public void UpdateTodo(string id, bool isCompleted);
-        public void UpdateTodo(string id, string description, bool isCompleted);
+        public Task InsertTodoAsync(Todo newTodo);
+        public Task RemoveTodoByIdAsync(string id);
+        public Task UpdateTodoAsync(Todo updatedTodo);
 
         // Queries
-        public TodosResponse FindAllTodos();
-        public TodoResponse FindTodoById(string id);
+        public Task<IEnumerable<Todo>> FindAllTodosAsync();
+        public Task<Todo> FindTodoByIdAsync(string id);
     }
 }

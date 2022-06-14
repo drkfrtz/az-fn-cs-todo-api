@@ -1,96 +1,53 @@
+using Azure;
 using Azure.Data.Tables;
-using System;
+
+using System.Collections.Generic;
 using System.Linq;
-using TodoApi.Exceptions;
-using TodoApi.Models.Dtos;
+using System.Threading.Tasks;
+
 using TodoApi.Models.Entities;
 
 namespace TodoApi.Services.Repositories
 {
     class TableStorageTodoRepository : ITodoRepository
     {
-        private TableClient tableClient { get; }
-        private TableServiceClient tableServiceClient { get; }
+        private readonly TableServiceClient tableServiceClient;
+        private readonly TableClient tableClient;
 
-        public TableStorageTodoRepository(
-            TableServiceClient tableServiceClient,
-            TableClient tableClient
-        )
+        public TableStorageTodoRepository(TableServiceClient tableServiceClient)
         {
             this.tableServiceClient = tableServiceClient;
-            this.tableClient = tableClient;
+            tableClient = this.tableServiceClient.GetTableClient("Todos");
         }
 
-        public string CreateTodo(CreateTodoRequest createTodoReq)
+        public async Task<IEnumerable<Todo>> FindAllTodosAsync()
         {
-            var entity = new TodoEntity(createTodoReq);
-            this.tableClient.AddEntity(entity);
-            return entity.RowKey;
+            var allTodos = await tableClient.QueryAsync<Todo>().ToListAsync();
+
+            return allTodos;
         }
 
-        public void DeleteTodo(string id)
+        public async Task<Todo> FindTodoByIdAsync(string id)
         {
-            var entity = tableClient.Query<TableEntity>(filter: $"RowKey eq '{id}'").First();
+            var todo = await tableClient.QueryAsync<Todo>(e => e.RowKey == id).FirstAsync();
 
-            tableClient.DeleteEntity(entity.PartitionKey, entity.RowKey);
+            return todo;
         }
 
-        public TodosResponse FindAllTodos()
+        public async Task InsertTodoAsync(Todo newTodo)
         {
-            return new TodosResponse(
-                tableClient.Query<TodoEntity>().Select(entity => new TodoResponse(entity))
-            );
+            await tableClient.AddEntityAsync(newTodo);
         }
 
-        public TodoResponse FindTodoById(string id)
+        public async Task RemoveTodoByIdAsync(string id)
         {
-            var entity = tableClient
-                .Query<TodoEntity>(filter: $"RowKey eq '{id}'")
-                .FirstOrDefault();
-            ;
-
-            if (entity == null)
-            {
-                throw new TodoNotFoundException();
-            }
-
-            return new TodoResponse(entity);
+            var todo = await FindTodoByIdAsync(id);
+            await tableClient.DeleteEntityAsync(todo.PartitionKey, todo.RowKey);
         }
 
-        public void UpdateTodo(string id, string description)
+        public async Task UpdateTodoAsync(Todo updatedTodo)
         {
-            var entity = tableClient
-                .Query<TableEntity>(filter: $"RowKey eq '{id}'")
-                .FirstOrDefault();
-            ;
-            entity["Description"] = description;
-
-            this.tableClient.UpdateEntity(entity, entity.ETag);
-        }
-
-        public void UpdateTodo(string id, bool isCompleted)
-        {
-            var entity = tableClient
-                .Query<TableEntity>(filter: $"RowKey eq '{id}'")
-                .FirstOrDefault();
-            ;
-
-            entity["CompletedAt"] = isCompleted ? DateTime.UtcNow : null;
-
-            this.tableClient.UpdateEntity(entity, entity.ETag, TableUpdateMode.Replace);
-        }
-
-        public void UpdateTodo(string id, string description, bool isCompleted)
-        {
-            var entity = tableClient
-                .Query<TableEntity>(filter: $"RowKey eq '{id}'")
-                .FirstOrDefault();
-            ;
-            entity["Description"] = description;
-
-            entity["CompletedAt"] = isCompleted ? DateTime.UtcNow : null;
-
-            this.tableClient.UpdateEntity(entity, entity.ETag, TableUpdateMode.Replace);
+            await tableClient.UpdateEntityAsync(updatedTodo, ETag.All, TableUpdateMode.Replace);
         }
     }
 }
